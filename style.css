@@ -1,0 +1,361 @@
+:root {
+    --bg-color: #121212;
+    --card-bg: #1e1e1e;
+    --primary: #7c4dff;
+    --primary-variant: #3700b3;
+    --secondary: #7c4dff;
+    --highlight: #7c4dff; /* Lighter purple for primary actions */
+    --text-main: #ffffff;
+    --text-muted: #b0b0b0;
+    --danger: #cf6679;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+    display: none;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent scrolling on main body if we want an app feel */
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    max-width: 600px; /* Tablet/Desktop constraint */
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Views */
+.view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    overflow-y: auto;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+header {
+    margin-bottom: 20px;
+}
+
+h1 {
+    font-weight: 800;
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+h2 {
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+p {
+    color: var(--text-muted);
+}
+
+/* List View */
+.workout-list {
+    list-style: none;
+    padding-bottom: 80px; /* Space for FAB or bottom nav if needed */
+}
+
+.workout-item {
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 0;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.1s active;
+}
+
+.workout-index {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    opacity: 0.5;
+    width: 30px;
+    text-align: center;
+}
+
+.workout-item:active {
+    transform: scale(0.98);
+}
+
+.workout-info h3 {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.workout-info span {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.start-btn {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--secondary);
+    color: #fff;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 0;
+    font-weight: 800;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(124, 77, 255, 0.3);
+    cursor: pointer;
+    z-index: 100;
+}
+
+/* Active Workout View */
+.active-workout-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.video-container {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background-color: #000;
+    border-radius: 0;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+.btn-switch-video {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 12px;
+    border-radius: 0;
+    font-size: 0.8rem;
+    cursor: pointer;
+    z-index: 10;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Rest Timer Overlay */
+.rest-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.rest-timer-container {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    margin-bottom: 30px;
+}
+
+/* SVG Circle Progress */
+.timer-svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.timer-circle-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 8;
+}
+
+.timer-circle-progress {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear;
+}
+
+.rest-time-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 4rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.rest-label {
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+}
+
+.rest-controls {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-skip {
+    padding: 16px 32px;
+    background: transparent;
+    border: 2px solid var(--text-muted);
+    color: var(--text-muted);
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+    min-width: 120px;
+}
+
+.btn-add-time {
+    padding: 16px 32px;
+    background: var(--primary-variant);
+    border: none;
+    color: var(--text-main);
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+    min-width: 120px;
+}
+
+
+.video-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.stats-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 0;
+}
+
+.stat-box {
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--secondary);
+}
+
+.controls {
+    margin-top: auto; /* Push to bottom */
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn {
+    flex: 1;
+    padding: 18px;
+    border-radius: 0;
+    border: none;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: #fff;
+}
+
+.btn-secondary {
+    background-color: var(--card-bg);
+    color: var(--text-main);
+}
+
+.btn-highlight {
+    background-color: var(--highlight);
+    color: #fff;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    cursor: pointer;
+    text-align: left;
+}
+
+/* Progress Bar */
+.progress-bar {
+    height: 4px;
+    background-color: var(--card-bg);
+    margin-top: 10px;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--primary);
+    width: 0%;
+    transition: width 0.3s ease;
+}
