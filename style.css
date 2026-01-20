@@ -4,13 +4,12 @@
     --primary: #7c4dff;
     --primary-variant: #3700b3;
     --secondary: #7c4dff;
-    --highlight: #7c4dff; /* Lighter purple for primary actions */
+    --highlight: #7c4dff;
     --text-main: #ffffff;
     --text-muted: #b0b0b0;
     --danger: #cf6679;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 ::-webkit-scrollbar {
     display: none;
 }
@@ -19,9 +18,8 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    /* Hide scrollbar for IE, Edge and Firefox */
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 body {
@@ -31,20 +29,19 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Prevent scrolling on main body if we want an app feel */
+    overflow: hidden;
 }
 
 #app {
     width: 100%;
     height: 100%;
-    max-width: 600px; /* Tablet/Desktop constraint */
+    max-width: 600px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     position: relative;
 }
 
-/* Views */
 .view {
     flex: 1;
     display: flex;
@@ -59,7 +56,6 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
 header {
     margin-bottom: 20px;
 }
@@ -80,10 +76,9 @@ p {
     color: var(--text-muted);
 }
 
-/* List View */
 .workout-list {
     list-style: none;
-    padding-bottom: 80px; /* Space for FAB or bottom nav if needed */
+    padding-bottom: 80px;
 }
 
 .workout-item {
@@ -139,7 +134,6 @@ p {
     z-index: 100;
 }
 
-/* Active Workout View */
 .active-workout-container {
     display: flex;
     flex-direction: column;
@@ -173,7 +167,6 @@ p {
     font-weight: 600;
 }
 
-/* Rest Timer Overlay */
 .rest-overlay {
     position: fixed;
     top: 0;
@@ -195,7 +188,6 @@ p {
     margin-bottom: 30px;
 }
 
-/* SVG Circle Progress */
 .timer-svg {
     transform: rotate(-90deg);
     width: 100%;
@@ -302,7 +294,7 @@ p {
 }
 
 .controls {
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto;
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
@@ -344,7 +336,6 @@ p {
     text-align: left;
 }
 
-/* Progress Bar */
 .progress-bar {
     height: 4px;
     background-color: var(--card-bg);
