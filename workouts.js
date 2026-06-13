@@ -5,7 +5,8 @@ const workoutRoutine = [
         sets: 1,
         reps: "5-10 min",
         videoUrls: [], 
-        restSeconds: 0,
+        restBetweenSetsSeconds: 0,
+        restAfterExerciseSeconds: 0,
         description: "Light cardio (jumping jacks, jog in place) and dynamic stretches."
     },
     {
@@ -17,7 +18,8 @@ const workoutRoutine = [
             "video_examples/male-barbell-bench-press-front.mp4",
             "video_examples/male-barbell-bench-press-side.mp4"
         ],
-        restSeconds: 90,
+        restBetweenSetsSeconds: 150,
+        restAfterExerciseSeconds: 60,
         description: "Main Lift. Keep feet flat and back arched slightly."
     },
     {
@@ -29,7 +31,8 @@ const workoutRoutine = [
             "video_examples/male-Dumbbells-dumbbell-single-arm-row-front.mp4",
             "video_examples/male-Dumbbells-dumbbell-single-arm-row-side.mp4"
         ],
-        restSeconds: 90,
+        restBetweenSetsSeconds: 120,
+        restAfterExerciseSeconds: 60,
         description: "Keep back flat. Pull towards your hip."
     },
     {
@@ -41,7 +44,8 @@ const workoutRoutine = [
             "video_examples/male-dumbbell-goblet-squat-front.mp4",
             "video_examples/male-dumbbell-goblet-squat-side.mp4"
         ],
-        restSeconds: 90,
+        restBetweenSetsSeconds: 120,
+        restAfterExerciseSeconds: 60,
         description: "Keep chest up. Go deep."
     },
     {
@@ -53,7 +57,8 @@ const workoutRoutine = [
             "video_examples/male-Dumbbells-dumbbell-arnold-press-front.mp4",
             "video_examples/male-Dumbbells-dumbbell-arnold-press-side.mp4"
         ],
-        restSeconds: 90,
+        restBetweenSetsSeconds: 90,
+        restAfterExerciseSeconds: 60,
         description: "Rotate palms as you press up if doing Arnold Press."
     },
     {
@@ -65,7 +70,8 @@ const workoutRoutine = [
             "video_examples/male-Dumbbells-dumbbell-curl-front.mp4",
             "video_examples/male-Dumbbells-dumbbell-curl-side.mp4"
         ],
-        restSeconds: 60,
+        restBetweenSetsSeconds: 75,
+        restAfterExerciseSeconds: 45,
         description: "Control the weight. No swinging."
     },
     {
@@ -77,7 +83,8 @@ const workoutRoutine = [
             "video_examples/male-Dumbbells-dumbbell-seated-overhead-tricep-extension-front.mp4",
             "video_examples/male-Dumbbells-dumbbell-seated-overhead-tricep-extension-side.mp4"
         ],
-        restSeconds: 60,
+        restBetweenSetsSeconds: 75,
+        restAfterExerciseSeconds: 45,
         description: "Keep elbows close to your head."
     },
     {
@@ -89,7 +96,8 @@ const workoutRoutine = [
             "video_examples/male-dumbbell-incline-chest-flys-front.mp4",
             "video_examples/male-dumbbell-incline-chest-flys-side_em1D4Db.mp4"
         ],
-        restSeconds: 60,
+        restBetweenSetsSeconds: 60,
+        restAfterExerciseSeconds: 45,
         description: "Feel the stretch at the bottom. Hug a tree."
     },
     {
@@ -101,7 +109,8 @@ const workoutRoutine = [
             "video_examples/male-bodyweight-forearm-plank-front.mp4",
             "video_examples/male-bodyweight-forearm-plank-side.mp4"
         ],
-        restSeconds: 60,
+        restBetweenSetsSeconds: 60,
+        restAfterExerciseSeconds: 30,
         description: "Core tight. Straight line from head to heels."
     },
     {
@@ -113,7 +122,8 @@ const workoutRoutine = [
             "video_examples/male-Bodyweight-push-up-front.mp4",
             "video_examples/male-Bodyweight-push-up-side.mp4"
         ],
-        restSeconds: 60,
+        restBetweenSetsSeconds: 0,
+        restAfterExerciseSeconds: 0,
         description: "Go until you can't do anymore with good form."
     }
 ];

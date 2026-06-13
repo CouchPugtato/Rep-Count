@@ -159,11 +159,11 @@ window.logSet = function() {
     completedSetsInRoutine++;
     updateProgressBar();
 
-    const restTime = exercise.restSeconds || 0;
-    
     const isLastExercise = currentExerciseIndex === workoutRoutine.length - 1;
     const isLastSet = currentSet === exercise.sets;
     const isWorkoutComplete = isLastExercise && isLastSet;
+    const isExerciseComplete = isLastSet;
+    const restTime = getRestTime(exercise, isExerciseComplete);
 
     if (restTime > 0 && !isWorkoutComplete) {
         startRestTimer(restTime, () => {
@@ -181,6 +181,20 @@ function advanceSetOrExercise(exercise) {
     } else {
         nextExercise();
     }
+}
+
+function getRestTime(exercise, isExerciseComplete) {
+    if (isExerciseComplete) {
+        if (typeof exercise.restAfterExerciseSeconds === 'number') {
+            return exercise.restAfterExerciseSeconds;
+        }
+        return exercise.restSeconds || 0;
+    }
+
+    if (typeof exercise.restBetweenSetsSeconds === 'number') {
+        return exercise.restBetweenSetsSeconds;
+    }
+    return exercise.restSeconds || 0;
 }
 
 let restTimerInterval;
