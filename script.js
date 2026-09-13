@@ -19,10 +19,14 @@ function addDays(key, amount) {
     return dateKey(date);
 }
 
+function normalizeClimbingDay(value) {
+    return value === "thu" ? "thu" : "tue";
+}
+
 function defaultState() {
     return {
         programStart: dateKey(),
-        weekendSwapped: false,
+        climbingDay: "tue",
         substitutions: {},
         workouts: [],
         weighIns: [],
@@ -35,7 +39,9 @@ function defaultState() {
 function loadState() {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        return saved ? { ...defaultState(), ...saved } : defaultState();
+        const loaded = saved ? { ...defaultState(), ...saved } : defaultState();
+        loaded.climbingDay = normalizeClimbingDay(loaded.climbingDay);
+        return loaded;
     } catch (error) {
         return defaultState();
     }
@@ -64,10 +70,8 @@ function programWeek() {
 
 function getSchedule() {
     const schedule = BASE_SCHEDULE.map(item => ({ ...item }));
-    if (state.weekendSwapped) {
-        schedule[5] = { day: "Sat", long: "Saturday", type: "workout", title: "Full Body", workout: "fullBody" };
-        schedule[6] = { day: "Sun", long: "Sunday", type: "climb", title: "Rock climbing" };
-    }
+    const climbIndex = normalizeClimbingDay(state.climbingDay) === "thu" ? 3 : 1;
+    schedule[climbIndex] = { ...schedule[climbIndex], type: "climb", title: "Rock climbing" };
     return schedule;
 }
 
@@ -146,7 +150,7 @@ function suggestedWeight(exerciseId) {
     if (!previous?.sets?.length) {
         const value = Number(usingAlternate && guide.alternateStart !== undefined ? guide.alternateStart : guide.start || 0);
         if (exercise.bodyweight && !usingAlternate) return { value: 0, label: "Bodyweight", reason: "No added weight." };
-        return { value, label: `${formatWeight(value)} lb`, reason: value === 0 ? "Start with no added plates." : "First-session trial. Adjust for 2–3 RIR." };
+        return { value, label: `${formatWeight(value)} lb`, reason: value === 0 ? "Start with no added plates." : "First-session trial. Adjust for 1–2 RIR." };
     }
 
     const [minimum, maximum] = exerciseReps(exerciseId);
@@ -218,7 +222,7 @@ function renderHome() {
 
             ${homeTodayCard(today)}
 
-            <div class="section-heading"><h2>This week</h2><button onclick="toggleWeekendSwap()">${icon("swap")} Swap weekend</button></div>
+            <div class="section-heading"><h2>This week</h2><button onclick="toggleClimbingDay()">${icon("swap")} Climb ${state.climbingDay === "tue" ? "Thu" : "Tue"}</button></div>
             <div class="week-strip">
                 ${schedule.map((item, index) => `<button class="day-pill ${isTodayIndex(index) ? "today" : ""} ${item.type}" onclick="openScheduleDay(${index})"><span>${item.day}</span><i></i><small>${item.type === "workout" ? "Lift" : item.type === "climb" ? "Climb" : "Rest"}</small></button>`).join("")}
             </div>
@@ -243,7 +247,7 @@ function homeTodayCard(today) {
         </section>`;
     }
     if (today.type === "climb") {
-        return `<section class="today-workout-card climb"><div class="today-card-label"><span>${today.long}</span><strong>Climbing</strong></div><h2>Rock climbing</h2><p>Counts as pulling and grip work.</p><button class="button primary full home-start" onclick="markClimbing()">Mark complete ${icon("check")}</button></section>`;
+        return `<section class="today-workout-card climb"><div class="today-card-label"><span>${today.long}</span><strong>Climbing</strong></div><h2>Rock climbing</h2><p>Pulling, grip, forearms, biceps, lats + upper back.</p><button class="button primary full home-start" onclick="markClimbing()">Mark complete ${icon("check")}</button></section>`;
     }
     return `<section class="today-workout-card rest"><div class="today-card-label"><span>${today.long}</span><strong>Rest</strong></div><h2>Rest day</h2><p>No workout scheduled.</p><button class="button soft full home-start" onclick="navigate('plan')">View workouts ${icon("chevron")}</button></section>`;
 }
@@ -252,11 +256,17 @@ function isTodayIndex(index) {
     return index === (new Date().getDay() + 6) % 7;
 }
 
-window.toggleWeekendSwap = function() {
-    state.weekendSwapped = !state.weekendSwapped;
+window.setClimbingDay = function(day) {
+    const nextDay = normalizeClimbingDay(day);
+    if (state.climbingDay === nextDay) return;
+    state.climbingDay = nextDay;
     saveState();
     activeView === "plan" ? renderPlan() : renderHome();
-    toast(state.weekendSwapped ? "Full Body moved to Saturday" : "Climbing moved back to Saturday");
+    toast(`Climbing set for ${nextDay === "tue" ? "Tuesday" : "Thursday"}`);
+};
+
+window.toggleClimbingDay = function() {
+    window.setClimbingDay(state.climbingDay === "tue" ? "thu" : "tue");
 };
 
 window.openScheduleDay = function(index) {
@@ -280,19 +290,20 @@ window.markClimbing = function() {
 function renderPlan(selectedDay = null) {
     activeView = "plan";
     const schedule = getSchedule();
+    const stats = workoutStats();
     app.innerHTML = layout(`
         <section class="screen">
             <header class="page-header"><div><h1>Workouts</h1></div><button class="week-chip" onclick="showProgramSettings()">Week ${programWeek()}</button></header>
             ${programWeek() === 1 ? `<div class="ramp-banner"><strong>Week 1</strong><span>2 working sets per exercise.</span></div>` : ""}
-            <div class="weight-method"><strong>Suggested weights</strong><span>Based on saved reps and RIR. New exercises use a light trial weight.</span></div>
+            <div class="weight-method"><strong>Suggested weights</strong><span>Saved reps and RIR set the next load. Top reps on every set adds one step.</span></div>
             <div class="home-workout-list workout-page-list">
-                ${Object.entries(WORKOUTS).map(([id, workout]) => workoutPageRow(id, workout)).join("")}
+                ${ACTIVE_WORKOUT_IDS.map(id => workoutPageRow(id, WORKOUTS[id])).join("")}
             </div>
             <div class="section-heading schedule-heading"><h2>Schedule</h2></div>
+            <div class="climbing-choice" aria-label="Weekly climbing day"><span>Climbing day</span><div><button class="${state.climbingDay === "tue" ? "selected" : ""}" onclick="setClimbingDay('tue')">Tuesday</button><button class="${state.climbingDay === "thu" ? "selected" : ""}" onclick="setClimbingDay('thu')">Thursday</button></div></div>
             <div class="schedule-list">
                 ${schedule.map((item, index) => scheduleRow(item, index, selectedDay)).join("")}
             </div>
-            <button class="button soft full swap-button" onclick="toggleWeekendSwap()">${icon("swap")} ${state.weekendSwapped ? "Climb Saturday instead" : "Climb Sunday instead"}</button>
             <div class="safety-inline"><strong>Stop for unusual pain.</strong><p>Stop for sharp or joint pain, numbness, dizziness, chest pain, or feeling faint. Seek medical attention when needed.</p></div>
             <section class="history-section">
                 <div class="section-heading"><h2>Recent activity</h2></div>
@@ -303,8 +314,28 @@ function renderPlan(selectedDay = null) {
                 <div class="backup-actions"><button class="button soft" onclick="backupData()">Back up</button><button class="button outline" onclick="chooseRestoreFile()">Restore</button></div>
                 <input id="restore-file" type="file" accept="application/json,.json" hidden onchange="restoreData(event)">
             </section>
+            <section class="stats-section" aria-label="Training stats">
+                <h2>Stats</h2>
+                <div class="stats-grid">
+                    <div><strong>${stats.workouts}</strong><span>workouts</span></div>
+                    <div><strong>${stats.sets}</strong><span>sets</span></div>
+                    <div><strong>${stats.minutes}</strong><span>minutes</span></div>
+                    <div><strong>${stats.climbs}</strong><span>climbs</span></div>
+                </div>
+            </section>
         </section>
     `, "plan");
+}
+
+function workoutStats() {
+    const activities = Array.isArray(state.workouts) ? state.workouts : [];
+    const lifting = activities.filter(item => item?.type !== "climb");
+    return {
+        workouts: lifting.length,
+        sets: lifting.reduce((total, workout) => total + (workout.exercises || []).reduce((sum, exercise) => sum + (exercise.sets?.length || 0), 0), 0),
+        minutes: lifting.reduce((total, workout) => total + Math.max(0, Number(workout.duration) || 0), 0),
+        climbs: activities.filter(item => item?.type === "climb").length
+    };
 }
 
 function workoutPageRow(id, workout) {
@@ -368,7 +399,7 @@ window.toggleSubstitution = function(id) {
 
 window.showExerciseInfo = function(id) {
     const exercise = EXERCISES[id];
-    showModal(`<p class="eyebrow">${escapeHtml(exercise.muscles)}</p><h2>${escapeHtml(exerciseName(id))}</h2><p>${escapeHtml(exercise.cue)}</p><div class="coach-note"><span>Effort</span>${exercise.preserveRir ? "Keep about 2 reps in reserve before climbing." : programWeek() <= 2 ? "Stop with about 2–3 clean reps left." : "Most sets should finish with 1–2 clean reps left."}</div>`);
+    showModal(`<p class="eyebrow">${escapeHtml(exercise.muscles)}</p><h2>${escapeHtml(exerciseName(id))}</h2><p>${escapeHtml(exercise.cue)}</p><div class="coach-note"><span>Effort</span>${programWeek() <= 2 ? "Stop with about 2 clean reps left." : "Stop with 1–2 clean reps left."}</div>`);
 };
 
 window.startWorkout = function(workoutId) {
@@ -597,7 +628,7 @@ function shouldIncrease(item) {
     if (programWeek() < 3) return false;
     const exercise = EXERCISES[item.exerciseId];
     const top = exerciseReps(item.exerciseId)[1];
-    return item.sets.length === prescribedSets(session?.workoutId || activeWorkoutId || "upperA", item.exerciseId) && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
+    return item.sets.length === prescribedSets(session?.workoutId || activeWorkoutId || "upperPush", item.exerciseId) && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
 }
 
 function exerciseRestSeconds(exerciseId) {
@@ -804,7 +835,7 @@ function normalizeBackupState(raw) {
     if (!raw || typeof raw !== "object" || !Array.isArray(raw.workouts)) throw new Error("Invalid backup");
     const clean = defaultState();
     clean.programStart = validDate(raw.programStart) ? raw.programStart : dateKey();
-    clean.weekendSwapped = Boolean(raw.weekendSwapped);
+    clean.climbingDay = normalizeClimbingDay(raw.climbingDay);
     clean.lastBackupAt = typeof raw.lastBackupAt === "string" && !Number.isNaN(Date.parse(raw.lastBackupAt)) ? raw.lastBackupAt : null;
     clean.substitutions = {};
     Object.keys(EXERCISES).forEach(id => {
@@ -827,7 +858,7 @@ function sanitizeWorkout(record, index) {
         id: typeof record.id === "string" ? record.id.slice(0, 100) : `restored-${index}-${Date.now()}`,
         date: validDate(record.date) ? record.date : dateKey(),
         type: isClimb ? "climb" : "workout",
-        name: isClimb ? "Rock climbing" : WORKOUTS[workoutId].name,
+        name: isClimb ? "Rock climbing" : typeof record.name === "string" && record.name.trim() ? record.name.trim().slice(0, 100) : WORKOUTS[workoutId].name,
         workoutId: isClimb ? undefined : workoutId,
         duration: Math.round(safeNumber(record.duration, 0, 1440)),
         exercises

@@ -13,18 +13,18 @@ const EXERCISES = {
     calfRaise: { name: "Calf Raise", sets: 2, reps: [10, 15], rest: "short", muscles: "Calves", cue: "Use a full, controlled range." },
     cableCrunch: { name: "Cable Crunch", sets: 3, reps: [10, 15], rest: "short", muscles: "Abs", cue: "Curl your ribs toward your hips." },
     kneeRaise: { name: "Hanging Knee Raise", sets: 2, reps: [8, 15], rest: "short", muscles: "Abs · hip flexors", cue: "Avoid swinging; raise your knees with control." },
-    pullup: { name: "Pull-Ups", alternate: "Lat Pulldown", sets: 3, reps: [6, 10], alternateReps: [8, 12], rest: "long", muscles: "Lats · biceps", cue: "Stop with about 2 clean reps left before climbing.", compound: true, preserveRir: true, bodyweight: true },
-    chestRow: { name: "Chest-Supported Row", sets: 3, reps: [8, 12], rest: "long", muscles: "Upper back · biceps", cue: "Keep your chest supported and leave 2 clean reps.", compound: true, preserveRir: true },
+    pullup: { name: "Pull-Ups", alternate: "Lat Pulldown", sets: 3, reps: [6, 10], alternateReps: [8, 12], rest: "long", muscles: "Lats · biceps", cue: "Use controlled reps and stop with 1–2 clean reps left.", compound: true, preserveRir: true, bodyweight: true },
+    chestRow: { name: "Chest-Supported Row", sets: 3, reps: [8, 12], rest: "long", muscles: "Upper back · biceps", cue: "Keep your chest supported and stop with 1–2 clean reps left.", compound: true, preserveRir: true },
     shoulderPress: { name: "Machine Shoulder Press", alternate: "Dumbbell Shoulder Press", sets: 3, reps: [8, 12], rest: "long", muscles: "Shoulders · triceps", cue: "Keep your ribs down and press smoothly.", compound: true },
     reversePec: { name: "Reverse Pec Deck", sets: 2, reps: [12, 20], rest: "short", muscles: "Rear shoulders · upper back", cue: "Move from the shoulders without shrugging." },
-    preacherCurl: { name: "Preacher Curl", sets: 3, reps: [8, 12], rest: "short", muscles: "Biceps", cue: "Leave about 2 clean reps before climbing.", preserveRir: true },
+    preacherCurl: { name: "Preacher Curl", sets: 3, reps: [8, 12], rest: "short", muscles: "Biceps", cue: "Keep your upper arms planted and stop with 1–2 clean reps left.", preserveRir: true },
     overheadTriceps: { name: "Overhead Cable Triceps Extension", sets: 3, reps: [10, 15], rest: "short", muscles: "Triceps", cue: "Keep your elbows pointed forward." },
     hackSquat: { name: "Hack Squat", alternate: "Leg Press", sets: 3, reps: [8, 12], rest: "long", muscles: "Quads · glutes", cue: "Use a controlled depth and drive through your whole foot.", compound: true },
     hipThrust: { name: "Hip Thrust", sets: 2, reps: [8, 12], rest: "long", muscles: "Glutes", cue: "Pause at the top without over-arching your back.", compound: true },
     machineChest: { name: "Machine Chest Press", sets: 2, reps: [8, 12], rest: "long", muscles: "Chest · triceps", cue: "Set the seat so the handles meet mid-chest.", compound: true },
     pecDeck: { name: "Pec Deck", sets: 2, reps: [10, 15], rest: "short", muscles: "Chest", cue: "Keep a soft elbow and squeeze gently." },
     inclineCurl: { name: "Incline Dumbbell Curl", sets: 2, reps: [10, 15], rest: "short", muscles: "Biceps", cue: "Let your arms hang and avoid moving your shoulders." },
-    hammerCurl: { name: "Hammer Curl", sets: 2, reps: [10, 15], rest: "short", muscles: "Biceps · forearms", cue: "Keep your palms facing in and move slowly." }
+    hammerCurl: { name: "Hammer Curl", alternate: "Preacher Curl", sets: 2, reps: [10, 15], rest: "short", muscles: "Biceps · forearms", cue: "Keep your upper arms still and move slowly." }
 };
 
 // Conservative first-session trials only. Saved performance replaces these values.
@@ -55,22 +55,28 @@ const WEIGHT_GUIDE = {
     machineChest: { start: 10, step: 5 },
     pecDeck: { start: 5, step: 5 },
     inclineCurl: { start: 5, step: 2.5 },
-    hammerCurl: { start: 10, step: 5 }
+    hammerCurl: { start: 10, alternateStart: 5, step: 5 }
 };
 
 const WORKOUTS = {
-    upperA: { name: "Upper A", focus: "Chest + arms", note: "Keep 2–3 reps in reserve.", exercises: ["dbBench", "inclinePress", "cableFly", "latPulldown", "lateralRaise", "ezCurl", "ropePushdown"] },
-    lowerA: { name: "Lower A + Abs", focus: "Legs + core", note: "Use controlled reps. Stop for sharp pain.", exercises: ["legPress", "dbRdl", "legCurl", "legExtension", "calfRaise", "cableCrunch", "kneeRaise"] },
-    upperB: { name: "Upper B", focus: "Back + shoulders + arms", note: "Keep 2 reps in reserve on pulls, rows, and curls before climbing.", exercises: ["pullup", "chestRow", "shoulderPress", "inclinePress", "lateralRaise", "reversePec", "preacherCurl", "overheadTriceps"] },
-    fullBody: { name: "Full Body", focus: "Chest + arms emphasis", note: "Do not add missed sets or exercises.", exercises: ["hackSquat", "hipThrust", "machineChest", "pecDeck", "inclineCurl", "hammerCurl", "ropePushdown", "cableCrunch"], setOverrides: { ropePushdown: 2 } }
+    lowerA: { name: "Lower Body + Abs", focus: "Legs + abs", note: "Keep 1–2 reps in reserve and use controlled reps.", exercises: ["legPress", "dbRdl", "legCurl", "legExtension", "calfRaise", "cableCrunch", "kneeRaise"] },
+    upperPush: { name: "Upper Push", focus: "Chest + shoulders + triceps", note: "Keep 1–2 reps in reserve. This session stays push-focused after Thursday climbing.", exercises: ["dbBench", "inclinePress", "shoulderPress", "cableFly", "lateralRaise", "ropePushdown", "overheadTriceps"], setOverrides: { overheadTriceps: 2 } },
+    fullBodyPull: { name: "Full Body + Pull", focus: "Full body + back + biceps", note: "Keep 1–2 reps in reserve on each working set.", exercises: ["hackSquat", "hipThrust", "machineChest", "pullup", "chestRow", "reversePec", "inclineCurl", "hammerCurl", "cableCrunch"] },
+
+    // Retained only so old local and restored workout records remain readable.
+    upperA: { name: "Upper A", focus: "Legacy workout", note: "Saved workout history.", exercises: ["dbBench", "inclinePress", "cableFly", "latPulldown", "lateralRaise", "ezCurl", "ropePushdown"], archived: true },
+    upperB: { name: "Upper B", focus: "Legacy workout", note: "Saved workout history.", exercises: ["pullup", "chestRow", "shoulderPress", "inclinePress", "lateralRaise", "reversePec", "preacherCurl", "overheadTriceps"], archived: true },
+    fullBody: { name: "Full Body", focus: "Legacy workout", note: "Saved workout history.", exercises: ["hackSquat", "hipThrust", "machineChest", "pecDeck", "inclineCurl", "hammerCurl", "ropePushdown", "cableCrunch"], setOverrides: { ropePushdown: 2 }, archived: true }
 };
+
+const ACTIVE_WORKOUT_IDS = ["lowerA", "upperPush", "fullBodyPull"];
 
 const BASE_SCHEDULE = [
     { day: "Mon", long: "Monday", type: "rest", title: "Rest day" },
-    { day: "Tue", long: "Tuesday", type: "workout", title: "Upper A", workout: "upperA" },
-    { day: "Wed", long: "Wednesday", type: "workout", title: "Lower + Abs", workout: "lowerA" },
+    { day: "Tue", long: "Tuesday", type: "rest", title: "Rest day" },
+    { day: "Wed", long: "Wednesday", type: "workout", title: "Lower Body + Abs", workout: "lowerA" },
     { day: "Thu", long: "Thursday", type: "rest", title: "Rest day" },
-    { day: "Fri", long: "Friday", type: "workout", title: "Upper B", workout: "upperB" },
-    { day: "Sat", long: "Saturday", type: "climb", title: "Rock climbing" },
-    { day: "Sun", long: "Sunday", type: "workout", title: "Full Body", workout: "fullBody" }
+    { day: "Fri", long: "Friday", type: "workout", title: "Upper Push", workout: "upperPush" },
+    { day: "Sat", long: "Saturday", type: "rest", title: "Rest day" },
+    { day: "Sun", long: "Sunday", type: "workout", title: "Full Body + Pull", workout: "fullBodyPull" }
 ];
