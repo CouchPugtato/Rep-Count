@@ -136,6 +136,18 @@ p { color: var(--muted); line-height: 1.55; }
 .backup-section p { margin: 0; font-size: .67rem; }
 .backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .backup-actions .button { min-height: 46px; font-size: .72rem; }
+.weight-history-section { margin-top: 28px; }
+.weight-history-section h2 { margin-bottom: 10px; font-size: 1rem; }
+.chart-frame { min-height: 126px; padding: 8px 10px 5px; border: 1px solid var(--line); border-radius: 19px; background: white; display: grid; place-items: center; }
+.weight-chart { width: 100%; height: auto; overflow: visible; }
+.weight-chart polyline { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.chart-dots circle { fill: var(--green); stroke: white; stroke-width: 2; }
+.chart-labels text { fill: var(--muted); font-size: 8px; }
+.chart-empty { color: var(--muted); font-size: .72rem; }
+.chart-selector { margin-top: 7px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: stretch; gap: 7px; }
+.chart-selector button, .chart-selector strong { min-height: 48px; border: 1px solid var(--line); border-radius: 14px; background: white; display: grid; place-items: center; }
+.chart-selector button { color: var(--green); font-size: 1.65rem; }
+.chart-selector strong { min-width: 0; padding: 8px 10px; font-size: .7rem; text-align: center; }
 .stats-section { margin-top: 28px; }
 .stats-section h2 { margin-bottom: 12px; font-size: 1rem; }
 .stats-grid { overflow: hidden; border: 1px solid var(--line); border-radius: 19px; background: white; display: grid; grid-template-columns: repeat(2, 1fr); }
