@@ -249,6 +249,9 @@ p { color: var(--muted); line-height: 1.55; }
 .timer-finished .timer-kind span::after { content: " · READY"; color: #3c8a47; }
 .modal-sheet h2 { margin: 4px 35px 10px 0; }
 .modal-sheet > p { font-size: .8rem; }
+.form-steps { margin: 16px 0 0; padding: 0; list-style: none; }
+.form-steps li { position: relative; padding: 9px 0 9px 18px; border-top: 1px solid var(--line); color: #4f5f56; font-size: .72rem; line-height: 1.45; }
+.form-steps li::before { content: ""; position: absolute; left: 2px; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 .modal-close { position: absolute; right: 18px; top: 17px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #e7eae6; color: var(--muted); font-size: 1.25rem; }
 .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 22px; }
 .modal-date { display: block; margin: 20px 0; }

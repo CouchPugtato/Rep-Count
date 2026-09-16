@@ -81,13 +81,27 @@ function todaySchedule() {
     return getSchedule()[dayIndex];
 }
 
+function selectedExerciseId(id) {
+    const exercise = EXERCISES[id];
+    return state.substitutions[id] && exercise.alternateId ? exercise.alternateId : id;
+}
+
+function hasSubstitution(id) {
+    const exercise = EXERCISES[id];
+    return Boolean(exercise.alternateId || exercise.alternate);
+}
+
 function exerciseName(id) {
     const exercise = EXERCISES[id];
+    const selectedId = selectedExerciseId(id);
+    if (selectedId !== id) return EXERCISES[selectedId].name;
     return state.substitutions[id] && exercise.alternate ? exercise.alternate : exercise.name;
 }
 
 function exerciseReps(id) {
     const exercise = EXERCISES[id];
+    const selectedId = selectedExerciseId(id);
+    if (selectedId !== id) return EXERCISES[selectedId].reps;
     return state.substitutions[id] && exercise.alternateReps ? exercise.alternateReps : exercise.reps;
 }
 
@@ -97,10 +111,17 @@ function prescribedSets(workoutId, exerciseId) {
     return programWeek() === 1 ? Math.min(2, normal) : normal;
 }
 
-function previousExerciseSafe(exerciseId) {
-    const selectedName = exerciseName(exerciseId);
+function previousExerciseSafe(exerciseId, selectedName = EXERCISES[exerciseId].name) {
+    const aliases = {
+        machineChest: [{ exerciseId: "dbBench", name: "Machine Chest Press" }],
+        latPulldown: [{ exerciseId: "pullup", name: "Lat Pulldown" }],
+        legPress: [{ exerciseId: "hackSquat", name: "Leg Press" }]
+    };
     for (let i = state.workouts.length - 1; i >= 0; i--) {
-        const found = state.workouts[i].exercises?.find(item => item.exerciseId === exerciseId && item.name === selectedName);
+        const found = state.workouts[i].exercises?.find(item =>
+            (item.exerciseId === exerciseId && item.name === selectedName)
+            || aliases[exerciseId]?.some(alias => item.exerciseId === alias.exerciseId && item.name === alias.name)
+        );
         if (found?.sets?.length) {
             const priorWorkout = WORKOUTS[state.workouts[i].workoutId];
             const targetSets = Number(found.targetSets) || priorWorkout?.setOverrides?.[exerciseId] || EXERCISES[exerciseId].sets;
@@ -141,11 +162,11 @@ function formatWeight(value) {
     return Number(value).toFixed(Number(value) % 1 === 0 ? 0 : 1);
 }
 
-function suggestedWeight(exerciseId) {
+function suggestedWeight(exerciseId, selectedName = EXERCISES[exerciseId].name) {
     const exercise = EXERCISES[exerciseId];
     const guide = WEIGHT_GUIDE[exerciseId] || { start: 0, step: 5 };
-    const usingAlternate = Boolean(state.substitutions[exerciseId] && exercise.alternate);
-    const previous = previousExerciseSafe(exerciseId);
+    const usingAlternate = Boolean(state.substitutions[exerciseId] && exercise.alternate && !exercise.alternateId);
+    const previous = previousExerciseSafe(exerciseId, selectedName);
     const step = guide.step || 5;
 
     if (!previous?.sets?.length) {
@@ -154,7 +175,7 @@ function suggestedWeight(exerciseId) {
         return { value, label: `${formatWeight(value)} lb`, reason: value === 0 ? "Start with no added plates." : "First-session trial. Adjust for 1–2 RIR." };
     }
 
-    const [minimum, maximum] = exerciseReps(exerciseId);
+    const [minimum, maximum] = exercise.reps;
     const sets = previous.sets;
     const baseWeight = Number(sets[0].weight || 0);
     if (exercise.bodyweight && !usingAlternate && baseWeight === 0) {
@@ -341,7 +362,7 @@ function workoutStats() {
 }
 
 function statsExerciseIds() {
-    return [...new Set(ACTIVE_WORKOUT_IDS.flatMap(workoutId => WORKOUTS[workoutId].exercises))];
+    return [...new Set(ACTIVE_WORKOUT_IDS.flatMap(workoutId => WORKOUTS[workoutId].exercises).flatMap(id => [id, EXERCISES[id].alternateId].filter(Boolean)))];
 }
 
 function selectedStatsExerciseId() {
@@ -358,7 +379,7 @@ function selectedStatsExerciseId() {
 }
 
 function exerciseWeightHistory(exerciseId) {
-    const selectedName = exerciseName(exerciseId);
+    const selectedName = EXERCISES[exerciseId].name;
     const byDate = new Map();
     const workouts = Array.isArray(state.workouts) ? state.workouts : [];
     workouts.forEach(workout => {
@@ -374,7 +395,7 @@ function exerciseWeightHistory(exerciseId) {
 function renderWeightChart() {
     const exerciseId = selectedStatsExerciseId();
     const points = exerciseWeightHistory(exerciseId);
-    const name = exerciseName(exerciseId);
+    const name = EXERCISES[exerciseId].name;
     let graph;
     if (!points.length) {
         graph = `<div class="chart-empty">No logged weights yet.</div>`;
@@ -458,14 +479,16 @@ function renderWorkoutOverview() {
 }
 
 function overviewExercise(id, index) {
-    const exercise = EXERCISES[id];
+    const selectedId = selectedExerciseId(id);
+    const exercise = EXERCISES[selectedId];
+    const name = exerciseName(id);
     const reps = exerciseReps(id);
-    const previous = previousExerciseSafe(id);
-    const suggestion = suggestedWeight(id);
+    const previous = previousExerciseSafe(selectedId, name);
+    const suggestion = suggestedWeight(selectedId, name);
     return `<li class="exercise-row">
         <span class="exercise-number">${String(index + 1).padStart(2, "0")}</span>
-        <button class="exercise-copy" onclick="showExerciseInfo('${id}')"><strong>${exerciseName(id)}</strong><small>${prescribedSets(activeWorkoutId, id)} × ${reps[0]}–${reps[1]} · ${exercise.rest === "long" ? "2–3 min" : "1–2 min"}</small><em>Suggested · ${suggestion.label}</em>${previous ? `<em class="previous-result">Last · ${setSummary(previous.sets)}</em>` : ""}</button>
-        ${exercise.alternate ? `<button class="sub-button" onclick="toggleSubstitution('${id}')">Swap</button>` : ""}
+        <button class="exercise-copy" onclick="showExerciseInfo('${id}')"><strong>${name}</strong><small>${prescribedSets(activeWorkoutId, id)} × ${reps[0]}–${reps[1]} · ${exercise.rest === "long" ? "2–3 min" : "1–2 min"}</small><em>Suggested · ${suggestion.label}</em>${previous ? `<em class="previous-result">Last · ${setSummary(previous.sets)}</em>` : ""}</button>
+        ${hasSubstitution(id) ? `<button class="sub-button" onclick="toggleSubstitution('${id}')">Swap</button>` : ""}
     </li>`;
 }
 
@@ -476,8 +499,9 @@ window.toggleSubstitution = function(id) {
 };
 
 window.showExerciseInfo = function(id) {
-    const exercise = EXERCISES[id];
-    showModal(`<p class="eyebrow">${escapeHtml(exercise.muscles)}</p><h2>${escapeHtml(exerciseName(id))}</h2><p>${escapeHtml(exercise.cue)}</p><div class="coach-note"><span>Effort</span>${programWeek() <= 2 ? "Stop with about 2 clean reps left." : "Stop with 1–2 clean reps left."}</div>`);
+    const exercise = EXERCISES[selectedExerciseId(id)];
+    const instructions = exercise.instructions?.length ? `<ul class="form-steps">${exercise.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ul>` : "";
+    showModal(`<p class="eyebrow">${escapeHtml(exercise.muscles)}</p><h2>${escapeHtml(exerciseName(id))}</h2><p>${escapeHtml(exercise.cue)}</p>${instructions}<div class="coach-note"><span>Effort</span>${programWeek() <= 2 ? "Stop with about 2 clean reps left." : "Stop with 1–2 clean reps left."}</div>`);
 };
 
 window.startWorkout = function(workoutId) {
@@ -488,7 +512,7 @@ window.startWorkout = function(workoutId) {
         exerciseIndex: 0,
         setIndex: 0,
         drafts: {},
-        exercises: WORKOUTS[workoutId].exercises.map(id => ({ exerciseId: id, name: exerciseName(id), targetSets: prescribedSets(workoutId, id), sets: [], warmups: [] }))
+        exercises: WORKOUTS[workoutId].exercises.map(id => ({ exerciseId: selectedExerciseId(id), programExerciseId: id, name: exerciseName(id), targetSets: prescribedSets(workoutId, id), sets: [], warmups: [] }))
     };
     renderActiveExercise();
 };
@@ -506,10 +530,11 @@ function currentSetDraft() {
     if (!session.drafts[key]) {
         const log = currentSessionExercise();
         const id = log.exerciseId;
-        const [minimum, maximum] = exerciseReps(id);
-        const previousSet = previousExerciseSafe(id)?.sets?.[session.setIndex];
+        const programId = log.programExerciseId || id;
+        const [minimum, maximum] = exerciseReps(programId);
+        const previousSet = previousExerciseSafe(id, log.name)?.sets?.[session.setIndex];
         const lastSet = log.sets.at(-1);
-        const suggestion = suggestedWeight(id);
+        const suggestion = suggestedWeight(id, log.name);
         const weight = lastSet ? Number(lastSet.weight) : suggestion.value;
         const priorWeight = Number(previousSet?.weight || 0);
         const reps = previousSet && weight === priorWeight
@@ -524,19 +549,20 @@ function renderActiveExercise() {
     const workout = WORKOUTS[session.workoutId];
     const log = currentSessionExercise();
     const id = log.exerciseId;
+    const programId = log.programExerciseId || id;
     const exercise = EXERCISES[id];
-    const reps = exerciseReps(id);
-    const setCount = prescribedSets(session.workoutId, id);
-    const previous = previousExerciseSafe(id);
+    const reps = exerciseReps(programId);
+    const setCount = prescribedSets(session.workoutId, programId);
+    const previous = previousExerciseSafe(id, log.name);
     const previousSet = previous?.sets?.[session.setIndex];
-    const suggestion = suggestedWeight(id);
+    const suggestion = suggestedWeight(id, log.name);
     const draft = currentSetDraft();
     const completed = session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
     const total = workout.exercises.reduce((sum, exerciseId) => sum + prescribedSets(session.workoutId, exerciseId), 0);
     const exerciseProgress = session.exerciseIndex + Math.min(1, log.sets.length / setCount);
     const progressPercent = Math.min(100, exerciseProgress / workout.exercises.length * 100);
     const step = weightStep(id);
-    const addedWeight = exercise.bodyweight && !state.substitutions[id];
+    const addedWeight = Boolean(exercise.bodyweight);
     app.innerHTML = layout(`
         <section class="screen active-session">
             <header class="session-header">
@@ -545,7 +571,7 @@ function renderActiveExercise() {
             </header>
             <div class="session-progress" role="progressbar" aria-label="Workout progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progressPercent)}"><i style="width:${progressPercent}%"></i></div>
             <div class="exercise-position">EXERCISE ${session.exerciseIndex + 1} OF ${workout.exercises.length}</div>
-            <div class="active-title-row"><div><h1>${escapeHtml(log.name)}</h1><p>${exercise.muscles}</p></div><div class="active-title-actions"><button class="sub-button" onclick="showExerciseInfo('${id}')">Form</button>${exercise.alternate ? `<button class="sub-button" onclick="swapDuringSession('${id}')">Swap</button>` : ""}</div></div>
+            <div class="active-title-row"><div><h1>${escapeHtml(log.name)}</h1><p>${exercise.muscles}</p></div><div class="active-title-actions"><button class="sub-button" onclick="showExerciseInfo('${programId}')">Form</button>${hasSubstitution(programId) ? `<button class="sub-button" onclick="swapDuringSession('${programId}')">Swap</button>` : ""}</div></div>
             <div class="prescription-row"><span><strong>${setCount}</strong> sets</span><span><strong>${reps[0]}–${reps[1]}</strong> reps</span><span>${icon("clock")}<strong>${exercise.rest === "long" ? "2:30" : "1:30"}</strong> rest</span></div>
             <div class="set-tabs">${Array.from({ length: setCount }, (_, i) => `<span class="${i < log.sets.length ? "done" : i === session.setIndex ? "current" : ""}">${i < log.sets.length ? icon("check") : i + 1}</span>`).join("")}</div>
             <section class="set-card">
@@ -579,6 +605,8 @@ window.swapDuringSession = function(id) {
     if (currentSessionExercise().sets.length) return toast("Finish this exercise before swapping");
     delete session.drafts[currentDraftKey()];
     state.substitutions[id] = !state.substitutions[id];
+    currentSessionExercise().exerciseId = selectedExerciseId(id);
+    currentSessionExercise().programExerciseId = id;
     currentSessionExercise().name = exerciseName(id);
     saveState();
     renderActiveExercise();
@@ -613,7 +641,7 @@ window.completeSet = function() {
     const exercise = EXERCISES[log.exerciseId];
     log.sets.push(values);
     session.setIndex++;
-    const exerciseDone = session.setIndex >= prescribedSets(session.workoutId, log.exerciseId);
+    const exerciseDone = session.setIndex >= prescribedSets(session.workoutId, log.programExerciseId || log.exerciseId);
     const workoutDone = exerciseDone && session.exerciseIndex === session.exercises.length - 1;
     if (workoutDone) return finishWorkout();
     if (exerciseDone) {
@@ -705,8 +733,8 @@ function isPersonalBest(item) {
 function shouldIncrease(item) {
     if (programWeek() < 3) return false;
     const exercise = EXERCISES[item.exerciseId];
-    const top = exerciseReps(item.exerciseId)[1];
-    return item.sets.length === prescribedSets(session?.workoutId || activeWorkoutId || "upperPush", item.exerciseId) && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
+    const top = exercise.reps[1];
+    return item.sets.length === prescribedSets(session?.workoutId || activeWorkoutId || "upperPush", item.programExerciseId || item.exerciseId) && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
 }
 
 function exerciseRestSeconds(exerciseId) {
@@ -948,9 +976,11 @@ function sanitizeExerciseLog(log, workoutId) {
     const exercise = EXERCISES[log?.exerciseId];
     if (!exercise) return null;
     const allowedNames = [exercise.name, exercise.alternate].filter(Boolean);
-    const fallbackSets = WORKOUTS[workoutId]?.setOverrides?.[log.exerciseId] || exercise.sets;
+    const programExerciseId = EXERCISES[log.programExerciseId] ? log.programExerciseId : log.exerciseId;
+    const fallbackSets = WORKOUTS[workoutId]?.setOverrides?.[programExerciseId] || exercise.sets;
     return {
         exerciseId: log.exerciseId,
+        programExerciseId,
         name: allowedNames.includes(log.name) ? log.name : exercise.name,
         targetSets: Number.isFinite(Number(log.targetSets)) ? Math.round(safeNumber(log.targetSets, 1, 20)) : fallbackSets,
         sets: Array.isArray(log.sets) ? log.sets.slice(0, 20).map(sanitizeSetLog) : [],
