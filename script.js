@@ -6,6 +6,7 @@ let activeView = "home";
 let activeWorkoutId = null;
 let session = null;
 let restTimer = null;
+let restTimerCleanup = null;
 let audioContext = null;
 let pendingRestoreState = null;
 
@@ -103,7 +104,8 @@ function loadSession() {
                 nextSet: Math.round(safeNumber(timer.nextSet, 1, 20)),
                 exerciseName: typeof timer.exerciseName === "string" ? timer.exerciseName.slice(0, 100) : "",
                 completedName: typeof timer.completedName === "string" ? timer.completedName.slice(0, 100) : "",
-                nextName: typeof timer.nextName === "string" ? timer.nextName.slice(0, 100) : ""
+                nextName: typeof timer.nextName === "string" ? timer.nextName.slice(0, 100) : "",
+                minimized: timer.minimized === true
             }
             : null;
         return {
@@ -770,6 +772,7 @@ window.confirmExitWorkout = function() {
 };
 
 window.discardWorkout = function() {
+    restTimerCleanup?.();
     session = null;
     saveSession();
     closeModal();
@@ -777,6 +780,7 @@ window.discardWorkout = function() {
 };
 
 function finishWorkout() {
+    restTimerCleanup?.();
     const workout = WORKOUTS[session.workoutId];
     const completedExercises = session.exercises.filter(item => item.sets.length);
     const duration = Math.max(1, Math.round((Date.now() - session.startedAt) / 60000));
@@ -821,9 +825,8 @@ function exerciseRestSeconds(exerciseId) {
     return EXERCISES[exerciseId].rest === "long" ? 150 : 90;
 }
 
-function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, completedName, nextName }) {
-    clearInterval(restTimer);
-    document.querySelector(".rest-overlay")?.remove();
+function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, completedName, nextName, minimized = false }) {
+    restTimerCleanup?.();
     const deadline = Number.isFinite(Number(endAt)) ? Number(endAt) : Date.now() + seconds * 1000;
     let remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
     let finished = false;
@@ -834,12 +837,18 @@ function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, c
         ? `Next: ${nextName}`
         : `${exerciseName} · set ${nextSet}`;
     const continueLabel = isExerciseTransition ? "Next exercise" : `Start set ${nextSet}`;
+    const bubbleLabel = isExerciseTransition ? "NEXT EXERCISE" : `SET ${nextSet}`;
+    const bubbleDetail = isExerciseTransition ? nextName : exerciseName;
     const overlay = document.createElement("div");
     overlay.className = `rest-overlay ${isExerciseTransition ? "exercise-rest" : "set-rest"}`;
-    overlay.innerHTML = `<div class="rest-sheet"><div class="timer-kind"><span>${label}</span><small>${isExerciseTransition ? "Between exercises" : "Between sets"}</small></div><h2 id="rest-title">${escapeHtml(title)}</h2><div class="rest-clock" id="rest-clock">${formatTime(remaining)}</div><p>${escapeHtml(description)}</p><button class="button primary full rest-continue" id="rest-continue" onclick="closeRestTimer()">${escapeHtml(continueLabel)}</button></div>`;
+    if (minimized) overlay.classList.add("minimized");
+    overlay.innerHTML = `<div class="rest-sheet"><button class="rest-minimize" onclick="minimizeRestTimer()" aria-label="Minimize timer">—</button><div class="timer-kind"><span>${label}</span><small>${isExerciseTransition ? "Between exercises" : "Between sets"}</small></div><h2 id="rest-title">${escapeHtml(title)}</h2><div class="rest-clock" id="rest-clock">${formatTime(remaining)}</div><p>${escapeHtml(description)}</p><button class="button primary full rest-continue" id="rest-continue" onclick="closeRestTimer()">${escapeHtml(continueLabel)}</button></div><button class="rest-bubble" onclick="restoreRestTimer()" aria-label="Open rest timer"><span id="rest-bubble-label">${escapeHtml(bubbleLabel)}</span><strong id="rest-bubble-clock">${formatTime(remaining)}</strong><small>${escapeHtml(bubbleDetail)}</small></button>`;
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay && !overlay.classList.contains("minimized")) window.minimizeRestTimer();
+    });
     document.body.appendChild(overlay);
     if (session) {
-        session.restTimer = { endAt: deadline, timerType, nextSet, exerciseName, completedName, nextName };
+        session.restTimer = { endAt: deadline, timerType, nextSet, exerciseName, completedName, nextName, minimized: Boolean(minimized) };
         saveSession();
     }
     function finishRest(announce) {
@@ -849,6 +858,8 @@ function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, c
         overlay.classList.add("timer-finished");
         const restTitle = document.getElementById("rest-title");
         if (restTitle) restTitle.textContent = "Rest complete";
+        const bubbleStatus = document.getElementById("rest-bubble-label");
+        if (bubbleStatus) bubbleStatus.textContent = "READY";
         if (announce) {
             playTimerSound();
             navigator.vibrate?.([150, 100, 150]);
@@ -858,19 +869,42 @@ function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, c
         remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
         const display = document.getElementById("rest-clock");
         if (display) display.textContent = formatTime(remaining);
+        const bubbleClock = document.getElementById("rest-bubble-clock");
+        if (bubbleClock) bubbleClock.textContent = formatTime(remaining);
+        const bubble = overlay.querySelector(".rest-bubble");
+        if (bubble) bubble.setAttribute("aria-label", `Open rest timer, ${formatTime(remaining)} remaining`);
         if (remaining === 0) finishRest(announce);
     }
     const syncOnReturn = () => {
         if (!document.hidden) updateRestDisplay();
     };
-    window.closeRestTimer = () => {
+    const cleanup = () => {
         clearInterval(restTimer);
         document.removeEventListener("visibilitychange", syncOnReturn);
+        overlay.remove();
+        if (restTimerCleanup === cleanup) restTimerCleanup = null;
+    };
+    restTimerCleanup = cleanup;
+    window.minimizeRestTimer = () => {
+        overlay.classList.add("minimized");
+        if (session?.restTimer) {
+            session.restTimer.minimized = true;
+            saveSession();
+        }
+    };
+    window.restoreRestTimer = () => {
+        overlay.classList.remove("minimized");
+        if (session?.restTimer) {
+            session.restTimer.minimized = false;
+            saveSession();
+        }
+    };
+    window.closeRestTimer = () => {
         if (session) {
             session.restTimer = null;
             saveSession();
         }
-        overlay.remove();
+        cleanup();
     };
     function startCountdown() {
         clearInterval(restTimer);
@@ -1031,6 +1065,7 @@ window.cancelRestore = function() {
 
 window.confirmRestore = function() {
     if (!pendingRestoreState) return;
+    restTimerCleanup?.();
     state = pendingRestoreState;
     pendingRestoreState = null;
     session = null;

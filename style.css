@@ -237,6 +237,15 @@ p { color: var(--muted); line-height: 1.55; }
 .rest-sheet, .modal-sheet { position: relative; width: min(480px, 100%); border-radius: 28px 28px 0 0; background: var(--paper); padding: 28px 22px calc(25px + env(safe-area-inset-bottom)); animation: slideUp .25s ease-out; }
 @keyframes slideUp { from { transform: translateY(25%); opacity: 0; } }
 .rest-sheet { max-height: calc(100dvh - 16px); overflow-y: auto; text-align: center; }
+.rest-minimize { position: absolute; right: 16px; top: 14px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: #e7eae6; color: var(--muted); font-size: 1.25rem; line-height: 1; }
+.rest-bubble { display: none; }
+.rest-overlay.minimized { inset: auto 14px calc(14px + env(safe-area-inset-bottom)) auto; width: auto; height: auto; background: transparent; backdrop-filter: none; }
+.rest-overlay.minimized .rest-sheet { display: none; }
+.rest-overlay.minimized .rest-bubble { width: min(250px, calc(100vw - 28px)); min-height: 70px; padding: 12px 14px; border: 1px solid rgba(21,95,66,.18); border-radius: 20px; background: var(--green); color: white; box-shadow: 0 12px 30px rgba(13,26,19,.24); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label clock" "detail clock"; align-items: center; column-gap: 16px; text-align: left; }
+.rest-bubble span { grid-area: label; color: var(--lime); font-size: .55rem; font-weight: 800; letter-spacing: .11em; }
+.rest-bubble strong { grid-area: clock; font-size: 1.55rem; letter-spacing: -.05em; }
+.rest-bubble small { grid-area: detail; overflow: hidden; color: rgba(255,255,255,.84); font-size: .68rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.timer-finished .rest-bubble { background: #3c8a47; }
 .timer-kind { margin-bottom: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .timer-kind span { color: var(--green); font-size: .61rem; font-weight: 800; letter-spacing: .14em; }
 .timer-kind small { padding: 4px 7px; border-radius: 999px; background: var(--soft-green); color: var(--green); font-size: .55rem; font-weight: 700; }
@@ -319,6 +328,7 @@ p { color: var(--muted); line-height: 1.55; }
     .bottom-nav { bottom: 18px; border-radius: 0 0 32px 32px; }
     .sticky-action { bottom: 18px; border-radius: 0 0 32px 32px; }
     .rest-sheet, .modal-sheet { margin-bottom: 18px; border-radius: 28px; }
+    .rest-overlay.minimized { right: calc(50vw - 226px); bottom: 32px; }
 }
 
 @media (max-width: 350px) {
