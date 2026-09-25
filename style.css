@@ -183,7 +183,9 @@ p { color: var(--muted); line-height: 1.55; }
 .icon-button { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; background: var(--card); font-size: 1.4rem; line-height: 1; }
 .session-progress { overflow: hidden; height: 4px; margin: 14px 0 25px; border-radius: 4px; background: #dfe3de; }
 .session-progress i { display: block; height: 100%; background: var(--green); transition: width .25s ease; }
+.exercise-position-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .exercise-position { color: var(--green); font-size: .62rem; font-weight: 800; letter-spacing: .14em; }
+.exercise-position-row .defer-exercise { min-height: 44px; border: 0; border-radius: 12px; background: var(--soft-green); padding: 8px 12px; color: var(--green); font-size: .64rem; font-weight: 800; }
 .active-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 9px 0 17px; }
 .active-title-row h1 { margin-bottom: 5px; font-size: 2.25rem; }
 .active-title-row p { margin: 0; font-size: .74rem; }
@@ -230,8 +232,8 @@ p { color: var(--muted); line-height: 1.55; }
 .rir-buttons button.selected { border-color: var(--green); background: var(--green); color: white; }
 .complete-set-button { min-height: 60px; font-size: .91rem; }
 .warmup-button { min-height: 48px; }
-.session-bottom { display: flex; justify-content: space-between; margin-top: 17px; }
-.session-bottom button { min-height: 44px; border: 0; background: transparent; padding: 10px; color: var(--muted); font-size: .68rem; }
+.session-bottom { display: flex; justify-content: space-between; gap: 5px; margin-top: 17px; }
+.session-bottom button { flex: 1; min-width: 0; min-height: 46px; border: 0; background: transparent; padding: 8px 5px; color: var(--muted); font-size: .66rem; }
 
 .rest-overlay, .modal-backdrop { position: fixed; z-index: 100; inset: 0; display: flex; align-items: flex-end; justify-content: center; background: rgba(13, 26, 19, .58); backdrop-filter: blur(5px); }
 .rest-sheet, .modal-sheet { position: relative; width: min(480px, 100%); border-radius: 28px 28px 0 0; background: var(--paper); padding: 28px 22px calc(25px + env(safe-area-inset-bottom)); animation: slideUp .25s ease-out; }

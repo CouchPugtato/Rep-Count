@@ -74,8 +74,15 @@ function loadSession() {
             return null;
         }
 
+        const programExerciseIds = saved.exercises.map((item, index) => EXERCISES[item?.programExerciseId] ? item.programExerciseId : workout.exercises[index]);
+        const expectedExerciseIds = [...workout.exercises].sort();
+        if ([...programExerciseIds].sort().some((id, index) => id !== expectedExerciseIds[index])) {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            return null;
+        }
+
         const exercises = saved.exercises.map((item, index) => {
-            const programExerciseId = workout.exercises[index];
+            const programExerciseId = programExerciseIds[index];
             const allowedExerciseIds = [programExerciseId, EXERCISES[programExerciseId].alternateId].filter(Boolean);
             const exerciseId = allowedExerciseIds.includes(item?.exerciseId) ? item.exerciseId : programExerciseId;
             const exercise = EXERCISES[exerciseId];
@@ -93,7 +100,13 @@ function loadSession() {
         const drafts = {};
         if (saved.drafts && typeof saved.drafts === "object") {
             Object.entries(saved.drafts).forEach(([key, draft]) => {
-                if (/^\d+:\d+$/.test(key)) drafts[key] = sanitizeSetLog(draft);
+                const legacyMatch = key.match(/^(\d+):(\d+)$/);
+                const stableMatch = key.match(/^([A-Za-z][A-Za-z0-9_-]*):(\d+)$/);
+                if (legacyMatch && programExerciseIds[Number(legacyMatch[1])]) {
+                    drafts[`${programExerciseIds[Number(legacyMatch[1])]}:${Math.round(safeNumber(legacyMatch[2], 0, 20))}`] = sanitizeSetLog(draft);
+                } else if (stableMatch && workout.exercises.includes(stableMatch[1])) {
+                    drafts[`${stableMatch[1]}:${Math.round(safeNumber(stableMatch[2], 0, 20))}`] = sanitizeSetLog(draft);
+                }
             });
         }
         const timer = saved.restTimer;
@@ -594,7 +607,8 @@ function currentSessionExercise() {
 }
 
 function currentDraftKey() {
-    return `${session.exerciseIndex}:${session.setIndex}`;
+    const log = currentSessionExercise();
+    return `${log.programExerciseId || log.exerciseId}:${session.setIndex}`;
 }
 
 function currentSetDraft() {
@@ -632,8 +646,7 @@ function renderActiveExercise() {
     const draft = currentSetDraft();
     const completed = session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
     const total = session.exercises.reduce((sum, item) => sum + (Number(item.targetSets) || prescribedSets(session.workoutId, item.programExerciseId || item.exerciseId)), 0);
-    const exerciseProgress = session.exerciseIndex + Math.min(1, log.sets.length / setCount);
-    const progressPercent = Math.min(100, exerciseProgress / workout.exercises.length * 100);
+    const progressPercent = total ? Math.min(100, completed / total * 100) : 0;
     const step = weightStep(id);
     const addedWeight = Boolean(exercise.bodyweight);
     app.innerHTML = layout(`
@@ -643,7 +656,7 @@ function renderActiveExercise() {
                 <span>${workout.name}</span><strong>${completed}/${total} sets</strong>
             </header>
             <div class="session-progress" role="progressbar" aria-label="Workout progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progressPercent)}"><i style="width:${progressPercent}%"></i></div>
-            <div class="exercise-position">EXERCISE ${session.exerciseIndex + 1} OF ${workout.exercises.length}</div>
+            <div class="exercise-position-row"><div class="exercise-position">EXERCISE ${session.exerciseIndex + 1} OF ${workout.exercises.length}</div>${session.exerciseIndex < session.exercises.length - 1 ? `<button class="defer-exercise" onclick="moveExerciseToEnd()">Move to end</button>` : ""}</div>
             <div class="active-title-row"><div><h1>${escapeHtml(log.name)}</h1><p>${exercise.muscles}</p></div><div class="active-title-actions"><button class="sub-button" onclick="showExerciseInfo('${programId}')">Form</button>${hasSubstitution(programId) ? `<button class="sub-button" onclick="swapDuringSession('${programId}')">Swap</button>` : ""}</div></div>
             <div class="prescription-row"><span><strong>${setCount}</strong> sets</span><span><strong>${reps[0]}–${reps[1]}</strong> reps</span><span>${icon("clock")}<strong>${exercise.rest === "long" ? "2:30" : "1:30"}</strong> rest</span></div>
             <div class="set-tabs">${Array.from({ length: setCount }, (_, i) => `<span class="${i < log.sets.length ? "done" : i === session.setIndex ? "current" : ""}">${i < log.sets.length ? icon("check") : i + 1}</span>`).join("")}</div>
@@ -748,9 +761,28 @@ window.completeSet = function() {
 
 function advanceExercise() {
     session.exerciseIndex++;
-    session.setIndex = 0;
+    session.setIndex = currentSessionExercise()?.sets.length || 0;
     saveSession();
 }
+
+window.moveExerciseToEnd = function() {
+    if (!session || session.exerciseIndex >= session.exercises.length - 1) return toast("Already at the end");
+    const activeTimer = session.restTimer ? { ...session.restTimer } : null;
+    restTimerCleanup?.();
+    const [movedExercise] = session.exercises.splice(session.exerciseIndex, 1);
+    session.exercises.push(movedExercise);
+    session.setIndex = currentSessionExercise().sets.length;
+    if (activeTimer?.timerType === "exercise") {
+        activeTimer.nextName = currentSessionExercise().name;
+        session.restTimer = activeTimer;
+    } else {
+        session.restTimer = null;
+    }
+    saveSession();
+    renderActiveExercise();
+    if (session.restTimer) showRestTimer(session.restTimer);
+    toast(`${movedExercise.name} moved to the end`);
+};
 
 window.skipExercise = function() {
     if (session.exerciseIndex >= session.exercises.length - 1) finishWorkout();
