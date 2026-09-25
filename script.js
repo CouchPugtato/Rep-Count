@@ -1,4 +1,5 @@
 const STORAGE_KEY = "rep-count-coach-v3";
+const SESSION_STORAGE_KEY = `${STORAGE_KEY}-active-session`;
 const app = document.getElementById("app");
 
 let activeView = "home";
@@ -52,6 +53,73 @@ let state = loadState();
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveSession() {
+    try {
+        if (session) localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        else localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (error) {
+        // Keep the workout usable if private browsing or storage limits block a write.
+    }
+}
+
+function loadSession() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY));
+        const workout = WORKOUTS[saved?.workoutId];
+        if (!saved || !workout || !Array.isArray(saved.exercises) || saved.exercises.length !== workout.exercises.length) {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            return null;
+        }
+
+        const exercises = saved.exercises.map((item, index) => {
+            const programExerciseId = workout.exercises[index];
+            const allowedExerciseIds = [programExerciseId, EXERCISES[programExerciseId].alternateId].filter(Boolean);
+            const exerciseId = allowedExerciseIds.includes(item?.exerciseId) ? item.exerciseId : programExerciseId;
+            const exercise = EXERCISES[exerciseId];
+            return {
+                exerciseId,
+                programExerciseId,
+                name: exercise.name,
+                targetSets: Math.round(safeNumber(item?.targetSets, 1, 20)),
+                sets: Array.isArray(item?.sets) ? item.sets.slice(0, 20).map(sanitizeSetLog) : [],
+                warmups: Array.isArray(item?.warmups) ? item.warmups.slice(0, 20).map(sanitizeSetLog) : []
+            };
+        });
+        const exerciseIndex = Math.round(safeNumber(saved.exerciseIndex, 0, exercises.length - 1));
+        const setIndex = Math.round(safeNumber(saved.setIndex, 0, exercises[exerciseIndex].targetSets));
+        const drafts = {};
+        if (saved.drafts && typeof saved.drafts === "object") {
+            Object.entries(saved.drafts).forEach(([key, draft]) => {
+                if (/^\d+:\d+$/.test(key)) drafts[key] = sanitizeSetLog(draft);
+            });
+        }
+        const timer = saved.restTimer;
+        const restTimerState = timer && Number.isFinite(Number(timer.endAt)) && ["set", "exercise"].includes(timer.timerType)
+            ? {
+                endAt: Number(timer.endAt),
+                timerType: timer.timerType,
+                nextSet: Math.round(safeNumber(timer.nextSet, 1, 20)),
+                exerciseName: typeof timer.exerciseName === "string" ? timer.exerciseName.slice(0, 100) : "",
+                completedName: typeof timer.completedName === "string" ? timer.completedName.slice(0, 100) : "",
+                nextName: typeof timer.nextName === "string" ? timer.nextName.slice(0, 100) : ""
+            }
+            : null;
+        return {
+            id: typeof saved.id === "string" ? saved.id.slice(0, 100) : String(Date.now()),
+            workoutId: saved.workoutId,
+            startedAt: Number.isFinite(Number(saved.startedAt)) ? Number(saved.startedAt) : Date.now(),
+            exerciseIndex,
+            setIndex,
+            drafts,
+            exercises,
+            restTimer: restTimerState
+        };
+    } catch (error) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        return null;
+    }
 }
 
 function escapeHtml(value) {
@@ -512,8 +580,10 @@ window.startWorkout = function(workoutId) {
         exerciseIndex: 0,
         setIndex: 0,
         drafts: {},
-        exercises: WORKOUTS[workoutId].exercises.map(id => ({ exerciseId: selectedExerciseId(id), programExerciseId: id, name: exerciseName(id), targetSets: prescribedSets(workoutId, id), sets: [], warmups: [] }))
+        exercises: WORKOUTS[workoutId].exercises.map(id => ({ exerciseId: selectedExerciseId(id), programExerciseId: id, name: exerciseName(id), targetSets: prescribedSets(workoutId, id), sets: [], warmups: [] })),
+        restTimer: null
     };
+    saveSession();
     renderActiveExercise();
 };
 
@@ -541,6 +611,7 @@ function currentSetDraft() {
             ? Math.min(maximum, Math.max(minimum, Number(previousSet.reps) + 1))
             : minimum;
         session.drafts[key] = { weight, reps, rir: EXERCISES[id].preserveRir || programWeek() <= 2 ? "2" : "1" };
+        saveSession();
     }
     return session.drafts[key];
 }
@@ -552,13 +623,13 @@ function renderActiveExercise() {
     const programId = log.programExerciseId || id;
     const exercise = EXERCISES[id];
     const reps = exerciseReps(programId);
-    const setCount = prescribedSets(session.workoutId, programId);
+    const setCount = Number(log.targetSets) || prescribedSets(session.workoutId, programId);
     const previous = previousExerciseSafe(id, log.name);
     const previousSet = previous?.sets?.[session.setIndex];
     const suggestion = suggestedWeight(id, log.name);
     const draft = currentSetDraft();
     const completed = session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
-    const total = workout.exercises.reduce((sum, exerciseId) => sum + prescribedSets(session.workoutId, exerciseId), 0);
+    const total = session.exercises.reduce((sum, item) => sum + (Number(item.targetSets) || prescribedSets(session.workoutId, item.programExerciseId || item.exerciseId)), 0);
     const exerciseProgress = session.exerciseIndex + Math.min(1, log.sets.length / setCount);
     const progressPercent = Math.min(100, exerciseProgress / workout.exercises.length * 100);
     const step = weightStep(id);
@@ -609,6 +680,7 @@ window.swapDuringSession = function(id) {
     currentSessionExercise().programExerciseId = id;
     currentSessionExercise().name = exerciseName(id);
     saveState();
+    saveSession();
     renderActiveExercise();
 };
 
@@ -623,15 +695,18 @@ window.adjustDraftValue = function(field, direction) {
         const display = document.getElementById("reps-display");
         if (display) display.textContent = draft.reps;
     }
+    saveSession();
 };
 
 window.selectDraftRir = function(value) {
     currentSetDraft().rir = value;
+    saveSession();
     document.querySelectorAll(".rir-buttons button").forEach(button => button.classList.toggle("selected", button.dataset.rir === value));
 };
 
 window.logWarmup = function() {
     currentSessionExercise().warmups.push({ ...currentSetDraft() });
+    saveSession();
     toast(`Warm-up ${currentSessionExercise().warmups.length} logged`);
 };
 
@@ -641,7 +716,8 @@ window.completeSet = function() {
     const exercise = EXERCISES[log.exerciseId];
     log.sets.push(values);
     session.setIndex++;
-    const exerciseDone = session.setIndex >= prescribedSets(session.workoutId, log.programExerciseId || log.exerciseId);
+    saveSession();
+    const exerciseDone = session.setIndex >= (Number(log.targetSets) || prescribedSets(session.workoutId, log.programExerciseId || log.exerciseId));
     const workoutDone = exerciseDone && session.exerciseIndex === session.exercises.length - 1;
     if (workoutDone) return finishWorkout();
     if (exerciseDone) {
@@ -671,6 +747,7 @@ window.completeSet = function() {
 function advanceExercise() {
     session.exerciseIndex++;
     session.setIndex = 0;
+    saveSession();
 }
 
 window.skipExercise = function() {
@@ -694,6 +771,7 @@ window.confirmExitWorkout = function() {
 
 window.discardWorkout = function() {
     session = null;
+    saveSession();
     closeModal();
     renderHome();
 };
@@ -712,6 +790,7 @@ function finishWorkout() {
     const totalReps = allSets.reduce((sum, set) => sum + Number(set.reps), 0);
     const volume = allSets.reduce((sum, set) => sum + Number(set.reps) * Number(set.weight), 0);
     session = null;
+    saveSession();
     playCompleteSound();
     app.innerHTML = `<main class="app-shell"><section class="screen finish-screen"><div class="success-mark">${icon("check")}</div><h1>Workout complete</h1><p>${workout.name}</p>
         <div class="summary-grid"><div><strong>${completedExercises.length}</strong><span>exercises</span></div><div><strong>${allSets.length}</strong><span>working sets</span></div><div><strong>${totalReps}</strong><span>total reps</span></div><div><strong>${duration}</strong><span>minutes</span></div></div>
@@ -734,16 +813,20 @@ function shouldIncrease(item) {
     if (programWeek() < 3) return false;
     const exercise = EXERCISES[item.exerciseId];
     const top = exercise.reps[1];
-    return item.sets.length === prescribedSets(session?.workoutId || activeWorkoutId || "upperPush", item.programExerciseId || item.exerciseId) && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
+    const targetSets = Number(item.targetSets) || prescribedSets(session?.workoutId || activeWorkoutId || "upperPush", item.programExerciseId || item.exerciseId);
+    return item.sets.length === targetSets && item.sets.every(set => Number(set.reps) >= top && (set.rir === "" || Number(set.rir) >= 1));
 }
 
 function exerciseRestSeconds(exerciseId) {
     return EXERCISES[exerciseId].rest === "long" ? 150 : 90;
 }
 
-function showRestTimer({ seconds, timerType, nextSet, exerciseName, completedName, nextName }) {
+function showRestTimer({ seconds = 0, endAt, timerType, nextSet, exerciseName, completedName, nextName }) {
     clearInterval(restTimer);
-    let remaining = seconds;
+    document.querySelector(".rest-overlay")?.remove();
+    const deadline = Number.isFinite(Number(endAt)) ? Number(endAt) : Date.now() + seconds * 1000;
+    let remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    let finished = false;
     const isExerciseTransition = timerType === "exercise";
     const label = isExerciseTransition ? "EXERCISE DONE" : "REST";
     const title = isExerciseTransition ? completedName : `Set ${nextSet} next`;
@@ -755,26 +838,46 @@ function showRestTimer({ seconds, timerType, nextSet, exerciseName, completedNam
     overlay.className = `rest-overlay ${isExerciseTransition ? "exercise-rest" : "set-rest"}`;
     overlay.innerHTML = `<div class="rest-sheet"><div class="timer-kind"><span>${label}</span><small>${isExerciseTransition ? "Between exercises" : "Between sets"}</small></div><h2 id="rest-title">${escapeHtml(title)}</h2><div class="rest-clock" id="rest-clock">${formatTime(remaining)}</div><p>${escapeHtml(description)}</p><button class="button primary full rest-continue" id="rest-continue" onclick="closeRestTimer()">${escapeHtml(continueLabel)}</button></div>`;
     document.body.appendChild(overlay);
-    window.closeRestTimer = () => { clearInterval(restTimer); overlay.remove(); };
-    function updateRestDisplay() {
+    if (session) {
+        session.restTimer = { endAt: deadline, timerType, nextSet, exerciseName, completedName, nextName };
+        saveSession();
+    }
+    function finishRest(announce) {
+        if (finished) return;
+        finished = true;
+        clearInterval(restTimer);
+        overlay.classList.add("timer-finished");
+        const restTitle = document.getElementById("rest-title");
+        if (restTitle) restTitle.textContent = "Rest complete";
+        if (announce) {
+            playTimerSound();
+            navigator.vibrate?.([150, 100, 150]);
+        }
+    }
+    function updateRestDisplay(announce = true) {
+        remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
         const display = document.getElementById("rest-clock");
         if (display) display.textContent = formatTime(remaining);
+        if (remaining === 0) finishRest(announce);
     }
+    const syncOnReturn = () => {
+        if (!document.hidden) updateRestDisplay();
+    };
+    window.closeRestTimer = () => {
+        clearInterval(restTimer);
+        document.removeEventListener("visibilitychange", syncOnReturn);
+        if (session) {
+            session.restTimer = null;
+            saveSession();
+        }
+        overlay.remove();
+    };
     function startCountdown() {
         clearInterval(restTimer);
-        restTimer = setInterval(() => {
-            remaining = Math.max(0, remaining - 1);
-            updateRestDisplay();
-            if (remaining === 0) {
-                clearInterval(restTimer);
-                overlay.classList.add("timer-finished");
-                const restTitle = document.getElementById("rest-title");
-                if (restTitle) restTitle.textContent = "Rest complete";
-                playTimerSound();
-                navigator.vibrate?.([150, 100, 150]);
-            }
-        }, 1000);
+        updateRestDisplay(false);
+        if (remaining > 0) restTimer = setInterval(updateRestDisplay, 1000);
     }
+    document.addEventListener("visibilitychange", syncOnReturn);
     startCountdown();
 }
 
@@ -932,6 +1035,7 @@ window.confirmRestore = function() {
     pendingRestoreState = null;
     session = null;
     saveState();
+    saveSession();
     closeModal();
     renderPlan();
     toast("Backup restored");
@@ -1040,4 +1144,12 @@ function toast(message) {
     setTimeout(() => element.remove(), 2400);
 }
 
-renderHome();
+session = loadSession();
+if (session) {
+    activeWorkoutId = session.workoutId;
+    activeView = "workout";
+    renderActiveExercise();
+    if (session.restTimer) showRestTimer(session.restTimer);
+} else {
+    renderHome();
+}
