@@ -4,6 +4,7 @@ const app = document.getElementById("app");
 
 let activeView = "home";
 let activeWorkoutId = null;
+let workoutReturnView = "plan";
 let session = null;
 let restTimer = null;
 let restTimerCleanup = null;
@@ -348,13 +349,34 @@ function homeTodayCard(today) {
             <div class="today-workout-meta"><span>${workout.exercises.length} exercises</span><span>${sets} working sets</span></div>
             <div class="home-exercise-preview">${workout.exercises.slice(0, 3).map((id, index) => `<span><i>${index + 1}</i>${exerciseName(id)}</span>`).join("")}<span><i>+</i>${workout.exercises.length - 3} more</span></div>
             <button class="button primary full home-start" onclick="startWorkout('${today.workout}')">${icon("play")} ${completed ? "Start again" : "Start workout"}</button>
-            <button class="home-details" onclick="openWorkout('${today.workout}')">View exercises</button>
+            <button class="home-details" onclick="openWorkout('${today.workout}', 'home')">View exercises</button>
         </section>`;
     }
     if (today.type === "climb") {
         return `<section class="today-workout-card climb"><div class="today-card-label"><span>${today.long}</span><strong>Climbing</strong></div><h2>Rock climbing</h2><p>Pulling, grip, forearms, biceps, lats + upper back.</p><button class="button primary full home-start" onclick="markClimbing()">Mark complete ${icon("check")}</button></section>`;
     }
-    return `<section class="today-workout-card rest"><div class="today-card-label"><span>${today.long}</span><strong>Rest</strong></div><h2>Rest day</h2><p>No workout scheduled.</p><button class="button soft full home-start" onclick="navigate('plan')">View workouts ${icon("chevron")}</button></section>`;
+    return `<section class="today-workout-card rest"><div class="today-card-label"><span>${today.long}</span><strong>Rest</strong></div><h2>Rest day</h2><p>No workout scheduled.</p><button class="button soft full home-start" onclick="showWorkoutPicker()">Choose a workout ${icon("chevron")}</button></section>`;
+}
+
+window.showWorkoutPicker = function() {
+    activeView = "workout-picker";
+    app.innerHTML = layout(`
+        <section class="screen workout-picker-screen">
+            <button class="text-back" onclick="navigate('home')">← Today</button>
+            <header class="picker-header"><h1>Choose a workout</h1></header>
+            <div class="workout-choice-list">
+                ${ACTIVE_WORKOUT_IDS.map(workoutChoiceCard).join("")}
+            </div>
+        </section>
+    `, "home");
+};
+
+function workoutChoiceCard(workoutId) {
+    const workout = WORKOUTS[workoutId];
+    const day = BASE_SCHEDULE.find(item => item.workout === workoutId)?.long || "Workout";
+    const sets = workout.exercises.reduce((sum, exerciseId) => sum + prescribedSets(workoutId, exerciseId), 0);
+    const preview = workout.exercises.slice(0, 3).map(exerciseName).join(" · ");
+    return `<button class="workout-choice" onclick="openWorkout('${workoutId}', 'picker')"><span class="workout-choice-day">${day}</span><strong>${escapeHtml(workout.name)}</strong><small>${workout.exercises.length} exercises · ${sets} sets</small><span class="workout-choice-preview">${escapeHtml(preview)}</span><span class="workout-choice-open">View workout ${icon("chevron")}</span></button>`;
 }
 
 function isTodayIndex(index) {
@@ -376,7 +398,7 @@ window.toggleClimbingDay = function() {
 
 window.openScheduleDay = function(index) {
     const day = getSchedule()[index];
-    if (day.type === "workout") openWorkout(day.workout);
+    if (day.type === "workout") openWorkout(day.workout, activeView === "home" ? "home" : "plan");
     else {
         activeView = "plan";
         renderPlan(index);
@@ -539,8 +561,9 @@ function historyRow(item) {
     return `<div class="history-row"><span><strong>${escapeHtml(item.name)}</strong><small>${date}</small></span><span>${item.type === "climb" ? "Completed" : `${sets} sets · ${item.duration || 0} min`}</span></div>`;
 }
 
-window.openWorkout = function(workoutId) {
+window.openWorkout = function(workoutId, returnView = "plan") {
     activeWorkoutId = workoutId;
+    workoutReturnView = returnView;
     activeView = "workout";
     renderWorkoutOverview();
 };
@@ -548,9 +571,11 @@ window.openWorkout = function(workoutId) {
 function renderWorkoutOverview() {
     const workout = WORKOUTS[activeWorkoutId];
     const totalSets = workout.exercises.reduce((sum, id) => sum + prescribedSets(activeWorkoutId, id), 0);
+    const backAction = workoutReturnView === "picker" ? "showWorkoutPicker()" : workoutReturnView === "home" ? "navigate('home')" : "navigate('plan')";
+    const backLabel = workoutReturnView === "picker" ? "Choose a workout" : workoutReturnView === "home" ? "Today" : "Workouts";
     app.innerHTML = layout(`
         <section class="screen workout-overview">
-            <button class="text-back" onclick="navigate('plan')">← Workouts</button>
+            <button class="text-back" onclick="${backAction}">← ${backLabel}</button>
             <header class="workout-title"><p class="eyebrow">WEEK ${programWeek()}</p><h1>${workout.name}</h1><p>${workout.focus} · ${totalSets} working sets</p></header>
             <div class="coach-banner"><span>NOTE</span><p>${workout.note}</p></div>
             <ol class="exercise-list">
