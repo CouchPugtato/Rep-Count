@@ -147,10 +147,14 @@ p { color: var(--muted); line-height: 1.55; }
 .backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .backup-actions .button { min-height: 46px; font-size: .72rem; }
 .weight-history-section { margin-top: 28px; }
-.weight-history-section h2 { margin-bottom: 10px; font-size: 1rem; }
+.weight-history-section h2 { margin: 0; font-size: 1rem; }
+.progress-chart-heading { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.chart-metric-toggle { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: white; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.chart-metric-toggle button { min-width: 68px; min-height: 38px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: .65rem; font-weight: 800; }
+.chart-metric-toggle button.selected { background: var(--green); color: white; }
 .chart-frame { min-height: 126px; padding: 8px 10px 5px; border: 1px solid var(--line); border-radius: 19px; background: white; display: grid; place-items: center; }
-.weight-chart { width: 100%; height: auto; overflow: visible; }
-.weight-chart polyline { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.progress-chart { width: 100%; height: auto; overflow: visible; }
+.progress-chart polyline { fill: none; stroke: var(--green); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .chart-dots circle { fill: var(--green); stroke: white; stroke-width: 2; }
 .chart-labels text { fill: var(--muted); font-size: 8px; }
 .chart-empty { color: var(--muted); font-size: .72rem; }

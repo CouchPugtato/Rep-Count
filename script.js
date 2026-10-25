@@ -36,6 +36,7 @@ function defaultState() {
         nutrition: {},
         measurements: [],
         statsExerciseId: null,
+        statsMetric: "weight",
         lastBackupAt: null
     };
 }
@@ -441,7 +442,7 @@ function renderPlan(selectedDay = null) {
                 <div class="backup-actions"><button class="button soft" onclick="backupData()">Back up</button><button class="button outline" onclick="chooseRestoreFile()">Restore</button></div>
                 <input id="restore-file" type="file" accept="application/json,.json" hidden onchange="restoreData(event)">
             </section>
-            ${renderWeightChart()}
+            ${renderProgressChart()}
             <section class="stats-section" aria-label="Training stats">
                 <h2>Stats</h2>
                 <div class="stats-grid">
@@ -483,27 +484,36 @@ function selectedStatsExerciseId() {
     return ids[0];
 }
 
-function exerciseWeightHistory(exerciseId) {
+function selectedStatsMetric() {
+    return state.statsMetric === "reps" ? "reps" : "weight";
+}
+
+function exerciseMetricHistory(exerciseId, metric) {
     const selectedName = EXERCISES[exerciseId].name;
     const byDate = new Map();
     const workouts = Array.isArray(state.workouts) ? state.workouts : [];
     workouts.forEach(workout => {
         const exercise = (workout.exercises || []).find(item => item.exerciseId === exerciseId && item.name === selectedName);
-        const weights = (exercise?.sets || []).map(set => Number(set.weight)).filter(Number.isFinite);
-        if (!weights.length || !validDate(workout.date)) return;
-        const heaviest = Math.max(...weights);
-        byDate.set(workout.date, Math.max(byDate.get(workout.date) ?? -Infinity, heaviest));
+        const values = (exercise?.sets || []).map(set => Number(set[metric])).filter(value => Number.isFinite(value) && (metric === "weight" ? value >= 0 : value > 0));
+        if (!values.length || !validDate(workout.date)) return;
+        const best = Math.max(...values);
+        byDate.set(workout.date, Math.max(byDate.get(workout.date) ?? -Infinity, best));
     });
-    return [...byDate.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(-12).map(([date, weight]) => ({ date, weight }));
+    return [...byDate.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(-12).map(([date, value]) => ({ date, value }));
 }
 
-function renderWeightChart() {
+function metricValueLabel(value, metric) {
+    return metric === "weight" ? `${formatWeight(value)} lb` : `${Math.round(value)} reps`;
+}
+
+function renderProgressChart() {
     const exerciseId = selectedStatsExerciseId();
-    const points = exerciseWeightHistory(exerciseId);
+    const metric = selectedStatsMetric();
+    const points = exerciseMetricHistory(exerciseId, metric);
     const name = EXERCISES[exerciseId].name;
     let graph;
     if (!points.length) {
-        graph = `<div class="chart-empty">No logged weights yet.</div>`;
+        graph = `<div class="chart-empty">No logged ${metric === "weight" ? "weights" : "reps"} yet.</div>`;
     } else {
         const width = 300;
         const height = 105;
@@ -513,33 +523,41 @@ function renderWeightChart() {
         const bottom = 18;
         const plotWidth = width - left - right;
         const plotHeight = height - top - bottom;
-        const weights = points.map(point => point.weight);
-        const low = Math.min(...weights);
-        const high = Math.max(...weights);
-        const increment = weightStep(exerciseId);
-        const padding = high === low ? Math.max(increment, high * .1, 2.5) : Math.max((high - low) * .15, increment);
+        const values = points.map(point => point.value);
+        const low = Math.min(...values);
+        const high = Math.max(...values);
+        const increment = metric === "weight" ? weightStep(exerciseId) : 1;
+        const padding = high === low ? Math.max(increment, high * .1, metric === "weight" ? 2.5 : 1) : Math.max((high - low) * .15, increment);
         const minimum = Math.max(0, Math.floor((low - padding) / increment) * increment);
         const maximum = Math.max(minimum + increment, Math.ceil((high + padding) / increment) * increment);
         const xAt = index => points.length === 1 ? left + plotWidth / 2 : left + index / (points.length - 1) * plotWidth;
         const yAt = value => top + (maximum - value) / (maximum - minimum) * plotHeight;
-        const coordinates = points.map((point, index) => `${xAt(index).toFixed(1)},${yAt(point.weight).toFixed(1)}`).join(" ");
-        const dots = points.map((point, index) => `<circle cx="${xAt(index).toFixed(1)}" cy="${yAt(point.weight).toFixed(1)}" r="4"><title>${escapeHtml(point.date)} · ${formatWeight(point.weight)} lb</title></circle>`).join("");
+        const coordinates = points.map((point, index) => `${xAt(index).toFixed(1)},${yAt(point.value).toFixed(1)}`).join(" ");
+        const dots = points.map((point, index) => `<circle cx="${xAt(index).toFixed(1)}" cy="${yAt(point.value).toFixed(1)}" r="4"><title>${escapeHtml(point.date)} · ${metricValueLabel(point.value, metric)}</title></circle>`).join("");
         const firstDate = new Date(`${points[0].date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
         const lastDate = new Date(`${points.at(-1).date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
         const firstX = xAt(0);
         const lastX = xAt(points.length - 1);
-        graph = `<svg class="weight-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(name)} heaviest working-set weight over time">${points.length > 1 ? `<polyline points="${coordinates}"/>` : ""}<g class="chart-dots">${dots}</g><g class="chart-labels"><text x="${firstX}" y="${Math.max(10, yAt(points[0].weight) - 9)}" text-anchor="${points.length === 1 ? "middle" : "start"}">${formatWeight(points[0].weight)} lb</text>${points.length > 1 ? `<text x="${lastX}" y="${Math.max(10, yAt(points.at(-1).weight) - 9)}" text-anchor="end">${formatWeight(points.at(-1).weight)} lb</text>` : ""}<text x="${firstX}" y="${height - 3}" text-anchor="${points.length === 1 ? "middle" : "start"}">${firstDate}</text>${points.length > 1 ? `<text x="${lastX}" y="${height - 3}" text-anchor="end">${lastDate}</text>` : ""}</g></svg>`;
+        const ariaMetric = metric === "weight" ? "heaviest working-set weight" : "highest working-set reps";
+        graph = `<svg class="progress-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(name)} ${ariaMetric} over time">${points.length > 1 ? `<polyline points="${coordinates}"/>` : ""}<g class="chart-dots">${dots}</g><g class="chart-labels"><text x="${firstX}" y="${Math.max(10, yAt(points[0].value) - 9)}" text-anchor="${points.length === 1 ? "middle" : "start"}">${metricValueLabel(points[0].value, metric)}</text>${points.length > 1 ? `<text x="${lastX}" y="${Math.max(10, yAt(points.at(-1).value) - 9)}" text-anchor="end">${metricValueLabel(points.at(-1).value, metric)}</text>` : ""}<text x="${firstX}" y="${height - 3}" text-anchor="${points.length === 1 ? "middle" : "start"}">${firstDate}</text>${points.length > 1 ? `<text x="${lastX}" y="${height - 3}" text-anchor="end">${lastDate}</text>` : ""}</g></svg>`;
     }
-    return `<section class="weight-history-section" id="weight-history-section"><h2>Weight</h2><div class="chart-frame">${graph}</div><div class="chart-selector"><button onclick="changeStatsExercise(-1)" aria-label="Previous exercise">‹</button><strong aria-live="polite">${escapeHtml(name)}</strong><button onclick="changeStatsExercise(1)" aria-label="Next exercise">›</button></div></section>`;
+    return `<section class="weight-history-section" id="progress-chart-section"><div class="progress-chart-heading"><h2>Progress</h2><div class="chart-metric-toggle" aria-label="Graph metric"><button class="${metric === "weight" ? "selected" : ""}" aria-pressed="${metric === "weight"}" onclick="setStatsMetric('weight')">Weight</button><button class="${metric === "reps" ? "selected" : ""}" aria-pressed="${metric === "reps"}" onclick="setStatsMetric('reps')">Reps</button></div></div><div class="chart-frame">${graph}</div><div class="chart-selector"><button onclick="changeStatsExercise(-1)" aria-label="Previous exercise">‹</button><strong aria-live="polite">${escapeHtml(name)}</strong><button onclick="changeStatsExercise(1)" aria-label="Next exercise">›</button></div></section>`;
 }
+
+window.setStatsMetric = function(metric) {
+    state.statsMetric = metric === "reps" ? "reps" : "weight";
+    saveState();
+    const section = document.getElementById("progress-chart-section");
+    if (section) section.outerHTML = renderProgressChart();
+};
 
 window.changeStatsExercise = function(direction) {
     const ids = statsExerciseIds();
     const currentIndex = Math.max(0, ids.indexOf(selectedStatsExerciseId()));
     state.statsExerciseId = ids[(currentIndex + direction + ids.length) % ids.length];
     saveState();
-    const section = document.getElementById("weight-history-section");
-    if (section) section.outerHTML = renderWeightChart();
+    const section = document.getElementById("progress-chart-section");
+    if (section) section.outerHTML = renderProgressChart();
 };
 
 function workoutPageRow(id, workout) {
@@ -1165,6 +1183,7 @@ function normalizeBackupState(raw) {
     clean.nutrition = raw.nutrition && typeof raw.nutrition === "object" ? Object.fromEntries(Object.entries(raw.nutrition).filter(([day]) => validDate(day)).slice(-1000)) : {};
     clean.measurements = Array.isArray(raw.measurements) ? raw.measurements.slice(-500) : [];
     clean.statsExerciseId = statsExerciseIds().includes(raw.statsExerciseId) ? raw.statsExerciseId : null;
+    clean.statsMetric = raw.statsMetric === "reps" ? "reps" : "weight";
     return clean;
 }
 
