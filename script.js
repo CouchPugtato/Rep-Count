@@ -810,17 +810,34 @@ window.moveExerciseToEnd = function() {
 };
 
 window.skipExercise = function() {
-    if (session.exerciseIndex >= session.exercises.length - 1) finishWorkout();
-    else {
-        advanceExercise();
-        renderActiveExercise();
-        toast("Exercise skipped");
-    }
+    const exercise = currentSessionExercise();
+    const isLast = session.exerciseIndex >= session.exercises.length - 1;
+    const savedSets = exercise.sets.length
+        ? `${exercise.sets.length} completed ${exercise.sets.length === 1 ? "set" : "sets"} will still be saved.`
+        : "No sets will be logged for this exercise.";
+    showModal(`<h2>Skip ${escapeHtml(exercise.name)}?</h2><p>${savedSets}</p><div class="modal-actions"><button class="button soft" onclick="closeModal()">Keep training</button><button class="button danger" onclick="confirmSkipExercise()">${isLast ? "Skip and finish" : "Skip exercise"}</button></div>`);
+};
+
+window.confirmSkipExercise = function() {
+    const isLast = session.exerciseIndex >= session.exercises.length - 1;
+    closeModal();
+    if (isLast) return finishWorkout();
+    restTimerCleanup?.();
+    session.restTimer = null;
+    advanceExercise();
+    renderActiveExercise();
+    toast("Exercise skipped");
 };
 
 window.finishWorkoutEarly = function() {
     const completed = session.exercises.reduce((sum, item) => sum + item.sets.length, 0);
-    if (!completed) return confirmExitWorkout();
+    if (!completed) return showModal(`<h2>Leave this workout?</h2><p>No completed sets will be saved.</p><div class="modal-actions"><button class="button soft" onclick="closeModal()">Keep training</button><button class="button danger" onclick="discardWorkout()">Leave workout</button></div>`);
+    const total = session.exercises.reduce((sum, item) => sum + Number(item.targetSets || 0), 0);
+    showModal(`<h2>Finish workout?</h2><p>${completed} of ${total} sets are complete. Completed sets will be saved.</p><div class="modal-actions"><button class="button soft" onclick="closeModal()">Keep training</button><button class="button danger" onclick="confirmFinishWorkoutEarly()">Finish workout</button></div>`);
+};
+
+window.confirmFinishWorkoutEarly = function() {
+    closeModal();
     finishWorkout();
 };
 
